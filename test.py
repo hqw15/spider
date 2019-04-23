@@ -1,5 +1,6 @@
 import json
 import re
+import os
 import time
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -22,7 +23,9 @@ def set_up(url):
     chrome_options.add_argument('--headless')
     chrome_options.add_argument('--disable-gpu')
 
-    driver = webdriver.Chrome(executable_path = '/Users/hqw/Desktop/qschou/chromedriver', chrome_options = chrome_options)
+    # driver = webdriver.Chrome(executable_path = '/Users/hqw/Desktop/qschou/chromedriver', chrome_options = chrome_options)
+    driver = webdriver.Chrome(executable_path = 'chromedriver.exe', chrome_options = chrome_options)
+
     # driver.implicitly_wait(10) 
     driver.get(url)
     driver.get(url)
@@ -112,7 +115,7 @@ def _zs_list(uuid, zs_num, last_num = 0):
     zs_list = zs_driver.find_element_by_id('cardList')
     zs_list = zs_list.find_elements_by_class_name('detail')
 
-    for num in tqdm(range(min(int(zs_num) - last_num,len(zs_list)))):
+    for num in range(min(int(zs_num) - last_num,len(zs_list))):
         per = zs_list[num]
         love_point = per.find_element_by_class_name('love_point').text.strip()
         real_name = per.find_element_by_class_name('real_name').text.strip().split('\n')[0].strip()
@@ -277,7 +280,7 @@ def _support_list(driver, num, last_num = 0):
 
     support_list = driver.find_elements_by_css_selector('.citem.J-support-item')
     print (num, iter_num, len(support_list))
-    for index in tqdm(range(min(int(num)-last_num,len(support_list)))):
+    for index in range(min(int(num)-last_num,len(support_list))):
         support = support_list[index]
         s_love = 'unknown'
         s_text = ''
@@ -296,12 +299,12 @@ def _support_list(driver, num, last_num = 0):
         single = {'爱心值' : s_love, '金额' : s_money, '姓名' : s_name, '时间': s_time, '文字': s_text}
         ret_list.append(single)
 
-    ret['捐助者信息'] = ret_list
+    ret['捐助者列表'] = ret_list
     ret['捐助者数量'] = num
     return ret
 
 
-def get_single_info(project):
+def get_single_info(project, zx_num, support_num):
     ''' 获取单个受捐助人的所有相关信息
     '''
 
@@ -340,7 +343,7 @@ def get_single_info(project):
         elif header.text.startswith('已有'):
             # 证实人信息
             last_num = re.sub('\D', '', header.text)
-            zs_list = _zs_list(uuid, last_num, max(0, int(last_num) - 10))
+            zs_list = _zs_list(uuid, last_num, zx_num)
             single_ret['证实人信息'] = zs_list
         elif header.text.startswith('资料证明'):   
             # 资料证明
@@ -349,8 +352,8 @@ def get_single_info(project):
         elif header.text.endswith('人帮助过'):
             # 捐助人列表
             last_num = re.sub('\D', '', header.text)
-            support_list = _support_list(driver, last_num, max(0,int(last_num)-10))
-            single_ret['捐助人列表'] = support_list  
+            support_list = _support_list(driver, last_num, support_num)
+            single_ret['捐助人信息'] = support_list  
 
     driver.close()
     return single_ret
@@ -360,33 +363,112 @@ def json_out(project_list, path):
     with open(path, 'w', encoding = 'utf-8') as f:
         f.write(project_list)
 
+def read_list(n = 2):
+    project_list = []
+    ret_json = 'https://gateway.qschou.com/v3.0.0/index/homepage'
+    uuid_list = []
+    for i in range(n):
+        driver = set_up(ret_json)
+        tmp_project_list = find_list(driver, 'pre')
+        for project in tmp_project_list:
+            if project['uuid'] not in uuid_list:
+                uuid_list.append(project['uuid'])
+                project_list.append(project)
+    return project_list
+
+def read_before(path = None):
+
+    before_file = {}
+    if path != None:
+        with open(path, 'r', encoding='utf-8') as f:
+            before_file = json.load(f)
+    print ('before_file : len %d'%len(before_file))
+    return before_file
+
+def update(before_file, project_list, path_num):
+    error_dict = {'error' : []}
+    out = {}
+    for index in tqdm(range(len(project_list))):
+        project = project_list[index]
+        uuid = project['uuid']
+    
+        zx_num, support_num = 0, 0
+        if uuid in before_file:
+            zx_num = int(before_file[uuid]['证实人信息']['证实人数量'])
+            support_num = int(before_file[uuid]['捐助人列表']['捐助者数量'])
+        
+        try_cnt = 0
+        for tmp_cnt in range(3):
+            try:
+                single_ret = get_single_info(project, zx_num, support_num)
+                out[uuid] = single_ret
+                try_cnt = 0
+                break
+            except:
+                try_cnt += 1
+                time.sleep(1)
+        if try_cnt != 0:
+            error_dict['error'].append(uuid)
+            print ('fail %s' % uuid)
+        
+    # merge
+    for uuid in out:
+        if uuid in before_file:
+            zs_list = before_file[uuid]['证实人信息']['证实人列表'].copy()
+            support_list = before_file[uuid]['捐助者信息']['捐助人列表'].copy()
+            before_file[uuid] = out[uuid]
+            before_file[uuid]['证实人信息']['证实人列表'] += zs_list 
+            before_file[uuid]['捐助者信息']['捐助人列表'] += support_list
+        else:
+            before_file[uuid] = out[uuid]
+    
+
+    json_out(before_file, os.path.join(str(path_num),'before_file.json'))
+    json_out(error_dict, os.path.join(str(path_num),'error_dict.json'))
+
+
+
 
 if __name__ == "__main__":
 
-    qschou = 'https://m2.qschou.com/index_v7_3.html'
-    ret_json = 'https://gateway.qschou.com/v3.0.0/index/homepage'
 
-    for i in tqdm(range(100)):
-        driver = set_up(ret_json)
-        project_list = find_list(driver, 'pre')
-        out = {}
-        for index, project in enumerate(project_list):
-            print (index, len(project_list), project['uuid'])
-            try_cnt = 0
-            for i in range(3):  # 每个网址最多尝试3次
-                try:
-                    single_ret = get_single_info(project)
-                    out[project['uuid']] = single_ret
-                    break
-                except:
-                    try_cnt += 1
-                    time.sleep(1)
-            if try_cnt != 0:
-                error_list.append(project['uuid'])
-                print ('fail %s' % project['uuid'])
+    for i in range(100):
+        if not os.path.exists(str(i)):
+            os.mkdir(str(i))
+        project_list = read_list()
+        path = None
+        if i > 0:
+            path = os.path.join(str(i-1), 'before_file.json')
+        before_file = read_before(path)
+        update(before_file, project_list, path_num = i)
 
 
-        json_out(out, '/Users/hqw/Desktop/qschou/test.json')
-    with open('/Users/hqw/Desktop/qschou/error.txt', 'w', encoding = 'utf-8') as f:
-        for s in error_list:
-            f.write(s + '\n')
+
+    # qschou = 'https://m2.qschou.com/index_v7_3.html'
+    # ret_json = 'https://gateway.qschou.com/v3.0.0/index/homepage'
+
+    # for i in tqdm(range(100)):
+    #     driver = set_up(ret_json)
+    #     project_list = find_list(driver, 'pre')
+    #     out = {}
+    #     for index, project in enumerate(project_list):
+    #         print (index, len(project_list), project['uuid'])
+    #         try_cnt = 0
+    #         for i in range(3):  # 每个网址最多尝试3次
+    #             try:
+    #                 single_ret = get_single_info(project)
+    #                 out[project['uuid']] = single_ret
+    #                 try_cnt = 0
+    #                 break
+    #             except:
+    #                 try_cnt += 1
+    #                 time.sleep(1)
+    #         if try_cnt != 0:
+    #             error_list.append(project['uuid'])
+    #             print ('fail %s' % project['uuid'])
+
+
+    #     json_out(out, '/Users/hqw/Desktop/qschou/test.json')
+    # with open('/Users/hqw/Desktop/qschou/error.txt', 'w', encoding = 'utf-8') as f:
+    #     for s in error_list:
+    #         f.write(s + '\n')
