@@ -2,6 +2,7 @@ import json
 import re
 import os
 import time
+import datetime
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
@@ -135,7 +136,7 @@ def _money_list(driver):
     '''
 
     des = ['急需筹款(元)', '已筹金额(元)', '帮助次数']
-    ret = {'急需筹款(元)': 'unkonwn', '已筹金额(元)': 'unkonwn', '帮助次数': 'unkonwn'}
+    ret = {'急需筹款(元)': 'unkonwn', '已筹金额(元)': 'unkonwn', '帮助次数': 'unkonwn', '转发次数': 'unknown'}
     try:
         moneylist = driver.find_element_by_class_name('moneylist')
     except:
@@ -147,6 +148,8 @@ def _money_list(driver):
         if money.text.startswith(des[index]):
             num = re.sub('\D', '', money.text)
             ret[des[index]] = num
+    share = driver.find_element_by_css_selector('.share-btn.J-btn-share.dtstrackclick')
+    ret['转发次数'] = share.text.strip()
     return ret
 
 def _zl_list(section):
@@ -225,7 +228,7 @@ def _fund_info(driver):
         EC.presence_of_element_located((By.CSS_SELECTOR,'.g-box7.news_publicity_tab.section.sectionT')) 
     )
 
-    ret = {'筹款动态': []}
+    ret = {'筹款动态': [], '资金公示': '', '项目发起': 'unknown', '项目截至': 'unknown'}
     dt_zj = driver.find_element_by_css_selector('.g-box7.news_publicity_tab.section.sectionT')
     # 筹款动态
     fund_news = dt_zj.find_element_by_id('fund_news')
@@ -243,6 +246,21 @@ def _fund_info(driver):
         c_time = comment.find_element_by_class_name('citme').text.strip()
         single = {'姓名' : c_name, '文字': c_text, '时间': c_time}
         ret['筹款动态'].append(single)
+        if c_time.endswith('项目发起'):
+            c_time = c_time.split(' ')[0].strip()
+            if c_time.endswith('天前'):
+                now = datetime.datetime.now().strftime('%Y-%m-%d')
+                nd = datetime.datetime.strptime(now,'%Y-%m-%d') - datetime.timedelta(days=int(re.sub('\D','',c_time)))
+                ret['项目发起'] = nd.strftime('%Y-%m-%d')
+            elif c_time.endswith('分钟前') and '小时前' not in c_time:
+                nd = datetime.datetime.now() - datetime.timedelta(minutes=int(re.sub('\D','',c_time)))
+                ret['项目发起'] = nd.strftime('%Y-%m-%d %H:%M:%S')
+            elif c_time.endswith('小时前') and '分钟前' not in c_time:
+                nd = datetime.datetime.now() - datetime.timedelta(hours=int(re.sub('\D','',c_time)))
+                ret['项目发起'] = nd.strftime('%Y-%m-%d %H:%M:%S')
+            else:
+                raise ValueError("项目发起 % s" % c_time)
+    
 
     # 资金公示
     fund_public = dt_zj.find_element_by_id('fund_public')
@@ -299,8 +317,8 @@ def _support_list(driver, num, last_num = 0):
         single = {'爱心值' : s_love, '金额' : s_money, '姓名' : s_name, '时间': s_time, '文字': s_text}
         ret_list.append(single)
 
-    ret['捐助者列表'] = ret_list
-    ret['捐助者数量'] = num
+    ret['捐助人列表'] = ret_list
+    ret['捐助人数量'] = num
     return ret
 
 
@@ -321,7 +339,11 @@ def get_single_info(project, zx_num, support_num):
     WebDriverWait(driver, 10).until(
         EC.presence_of_element_located((By.CLASS_NAME,'sectionT')) 
     )
-   
+    isactive = driver.find_element_by_css_selector('.project-active.J-project-active')
+    isclosed = driver.find_element_by_css_selector('.project-closed.J-project-closed')
+    if isclosed:
+        return True, None
+    # print ('zzzzzzzzzzzzzz',isactive.is_displayed(),isclosed.is_displayed())
     # 获取筹款结果
     money_list = _money_list(driver)
     single_ret['筹款结果'] = money_list
@@ -356,14 +378,16 @@ def get_single_info(project, zx_num, support_num):
             single_ret['捐助人信息'] = support_list  
 
     driver.close()
-    return single_ret
+    return False, single_ret
     
 def json_out(project_list, path):
     project_list = json.dumps(project_list, ensure_ascii=False, indent=2)
     with open(path, 'w', encoding = 'utf-8') as f:
         f.write(project_list)
 
-def read_list(n = 2):
+def read_list(n = 10):
+    '''	读取新的捐赠项目
+    '''
     project_list = []
     ret_json = 'https://gateway.qschou.com/v3.0.0/index/homepage'
     uuid_list = []
@@ -374,10 +398,12 @@ def read_list(n = 2):
             if project['uuid'] not in uuid_list:
                 uuid_list.append(project['uuid'])
                 project_list.append(project)
+        time.sleep(1)
     return project_list
 
 def read_before(path = None):
-
+    '''	读取之前的数据
+    '''
     before_file = {}
     if path != None:
         with open(path, 'r', encoding='utf-8') as f:
@@ -385,23 +411,20 @@ def read_before(path = None):
     print ('before_file : len %d'%len(before_file))
     return before_file
 
-def update(before_file, project_list, path_num):
+def add_new(before_file, project_list):
     error_dict = {'error' : []}
-    out = {}
     for index in tqdm(range(len(project_list))):
         project = project_list[index]
         uuid = project['uuid']
-    
         zx_num, support_num = 0, 0
-        if uuid in before_file:
-            zx_num = int(before_file[uuid]['证实人信息']['证实人数量'])
-            support_num = int(before_file[uuid]['捐助人列表']['捐助者数量'])
-        
         try_cnt = 0
         for tmp_cnt in range(3):
             try:
-                single_ret = get_single_info(project, zx_num, support_num)
-                out[uuid] = single_ret
+                isclosed, single_ret = get_single_info(project, zx_num, support_num)
+                try_cnt = 0
+                if isclosed:
+                    break
+                before_file[uuid] = single_ret
                 try_cnt = 0
                 break
             except:
@@ -410,39 +433,65 @@ def update(before_file, project_list, path_num):
         if try_cnt != 0:
             error_dict['error'].append(uuid)
             print ('fail %s' % uuid)
-        
-    # merge
-    for uuid in out:
-        if uuid in before_file:
-            zs_list = before_file[uuid]['证实人信息']['证实人列表'].copy()
-            support_list = before_file[uuid]['捐助者信息']['捐助人列表'].copy()
-            before_file[uuid] = out[uuid]
-            before_file[uuid]['证实人信息']['证实人列表'] += zs_list 
-            before_file[uuid]['捐助者信息']['捐助人列表'] += support_list
-        else:
-            before_file[uuid] = out[uuid]
-    
+    return before_file, error_dict
 
-    json_out(before_file, os.path.join(str(path_num),'before_file.json'))
-    json_out(error_dict, os.path.join(str(path_num),'error_dict.json'))
+def update(before_file):
+    error_dict = {'error' : []}
+    out = {}
+    for uuid in before_file:
+        if before_file[uuid]['筹款动态']['项目截至'] != 'unknown':
+            continue
+        zx_num = int(before_file[uuid]['证实人信息']['证实人数量'])
+        support_num = int(before_file[uuid]['捐助人信息']['捐助人数量'])
+        try_cnt , closed = 0, False
+        for tmp_cnt in range(3):
+            try:
+                closed, single_ret = get_single_info(project, zx_num, support_num)
+                try_cnt = 0
+                if closed:
+                    before_file[uuid]['筹款动态']['项目截至'] = datetime.datetime.now().strftime('%Y-%m-%d')
+                    break
+
+                zs_list = before_file[uuid]['证实人信息']['证实人列表'].copy()
+                support_list = before_file[uuid]['捐助人信息']['捐助人列表'].copy()
+                before_file[uuid] = single_ret
+                before_file[uuid]['证实人信息']['证实人列表'] += zs_list 
+                before_file[uuid]['捐助人信息']['捐助人列表'] += support_list
+                break
+            except:
+                try_cnt += 1
+                time.sleep(1)
+        if try_cnt != 0:
+            error_dict['error'].append(uuid)
+            print ('fail %s' % uuid)
+
+    return before_file, error_dict
+
+
 
 
 
 
 if __name__ == "__main__":
 
-
-    for i in range(100):
-        if not os.path.exists(str(i)):
-            os.mkdir(str(i))
-        project_list = read_list()
-        path = None
-        if i > 0:
-            path = os.path.join(str(i-1), 'before_file.json')
+    all = []
+    path = None
+    for i in range(1000):
+        if not os.path.exists(str(i//25)):
+            os.mkdir(str(i//25))
+        # 添加新的项目
+        project_list = read_list(n=1)
         before_file = read_before(path)
-        update(before_file, project_list, path_num = i)
-
-
+        before_file, error_dict = add_new(before_file, project_list)
+        json_out(before_file, os.path.join(str(i//25),'add_before_file.json'))
+        json_out(error_dict, os.path.join(str(i//25),'add_error_dict.json'))
+        # path = None
+        # 更新已有项目
+        before_file = read_before(os.path.join(str(i//25),'add_before_file.json'))
+        before_file, error_dict = update(before_file)
+        json_out(before_file, os.path.join(str(i//25),'update_before_file.json'))
+        json_out(error_dict, os.path.join(str(i//25),'update_error_dict.json'))
+        path = os.path.join(str(i//25),'update_before_file.json')
 
     # qschou = 'https://m2.qschou.com/index_v7_3.html'
     # ret_json = 'https://gateway.qschou.com/v3.0.0/index/homepage'
