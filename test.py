@@ -44,8 +44,8 @@ def find_list(driver, tag):
     love_list = json.loads(project_list.text)['data']['recommend']
     project_list = json.loads(project_list.text)['data']['project']
     driver.close()
-    # return project_list + love_list
-    return love_list
+    return project_list + love_list
+    #return love_list
     # project_list = json.dumps(project_list, ensure_ascii=False, indent=2)
     # with open('/Users/hqw/Desktop/qschou/ret.json', 'w', encoding = 'utf-8') as f:
     #     f.write(project_list)
@@ -152,7 +152,7 @@ def _money_list(driver):
         share = driver.find_element_by_css_selector('.share-btn.J-btn-share.dtstrackclick')
         ret['转发次数'] = share.text.strip()
     except:
-        test = driver.find_element_by_css_selector('.projectend-bar-title-left')
+        pass
     return ret
 
 def _zl_list(section):
@@ -341,7 +341,7 @@ def get_single_info(project, zx_num, support_num, update = False):
         uuid = project['uuid']
         assert project['template'] == 'love'
     # uuid = 'c3228d98-48d9-4e0b-b490-10ee956738cf'
-    # uuid = '4fc61a14-b639-40aa-a1a0-05a0c5688746'
+    uuid = '4fc61a14-b639-40aa-a1a0-05a0c5688746'
     # uuid = '31c69f97-c210-454d-b252-529059bb86b7'
     url = 'https://m2.qschou.com/project/love/love_v7.html?projuuid=' + uuid
 
@@ -353,7 +353,12 @@ def get_single_info(project, zx_num, support_num, update = False):
     )
     isactive = driver.find_element_by_css_selector('.project-active.J-project-active').is_displayed()
     isclosed = driver.find_element_by_css_selector('.project-closed.J-project-closed').is_displayed()
-    # zz = driver.find_element_by_css_selector('.projectend-bar-title-left')
+    try:
+        zz = driver.find_element_by_css_selector('.projectend-bar-title-right.J-projectend-bar-title-right')
+        zz.click()
+        print ('aaaaaaa')
+    except:
+        pass
     if isclosed:
         return True, None
     # print ('zzzzzzzzzzzzzz',isactive,isclosed, zz.text)
@@ -364,6 +369,8 @@ def get_single_info(project, zx_num, support_num, update = False):
     # 筹款动态
     fund_info = _fund_info(driver)
     single_ret['筹款动态'] = fund_info
+
+    print (fund_info)
         
     section_list = driver.find_elements_by_css_selector('.section.sectionT')
     for section in section_list:
@@ -434,8 +441,8 @@ def add_new(before_file, project_list):
         zx_num, support_num = 0, 0
         try_cnt = 0
         for tmp_cnt in range(3):
-            # if 1:
-            try:
+            if 1:
+            # try:
                 isclosed, single_ret = get_single_info(project, zx_num, support_num)
                 try_cnt = 0
                 if isclosed:
@@ -443,9 +450,9 @@ def add_new(before_file, project_list):
                 before_file[uuid] = single_ret
                 try_cnt = 0
                 break
-            except:
-                try_cnt += 1
-                time.sleep(1)
+            # except:
+            #     try_cnt += 1
+            #     time.sleep(1)
         if try_cnt != 0:
             error_dict['error'].append(uuid)
             print ('fail %s' % uuid)
@@ -507,13 +514,13 @@ if __name__ == "__main__":
         print (datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),'add new', len(before_file))
         before_file, error_dict = add_new(before_file, project_list)
         print (datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),'after add new', len(before_file))
-        json_out(before_file, os.path.join('output',str(i//25),'add_before_file.json'))
-        add_error(error_dict)
+        # json_out(before_file, os.path.join('output',str(i//25),'add_before_file.json'))
+        # add_error(error_dict)
         # path = None
         # 更新已有项目
-        before_file = read_before(os.path.join(str(i//25),'add_before_file.json'))
+        before_file = read_before(os.path.join('output',str(i//25),'add_before_file.json'))
         before_file, error_dict = update(before_file)
-        json_out(before_file, os.path.join(str(i//25),'update_before_file.json'))
+        json_out(before_file, os.path.join('output',str(i//25),'update_before_file.json'))
         path = os.path.join('output',str(i//25),'update_before_file.json')
         add_error(error_dict)
 
