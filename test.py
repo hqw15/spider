@@ -265,7 +265,11 @@ def _fund_info(driver):
 
 def _set_time(c_time):
 
-    if c_time.endswith('天前'):
+    if c_time.endswith('月前'):
+        now = datetime.datetime.now().strftime('%Y-%m')
+        nd = datetime.datetime.strptime(now,'%Y-%m') - datetime.timedelta(days=30*int(re.sub('\D','',c_time)))
+        return nd.strftime('%Y-%m')
+    elif c_time.endswith('天前'):
         now = datetime.datetime.now().strftime('%Y-%m-%d')
         nd = datetime.datetime.strptime(now,'%Y-%m-%d') - datetime.timedelta(days=int(re.sub('\D','',c_time)))
         return nd.strftime('%Y-%m-%d')
@@ -342,6 +346,7 @@ def get_single_info(project, zx_num, support_num, update = False):
     # uuid = 'c3228d98-48d9-4e0b-b490-10ee956738cf'
     # uuid = '4fc61a14-b639-40aa-a1a0-05a0c5688746'
     # uuid = '31c69f97-c210-454d-b252-529059bb86b7'
+    # uuid = '6a9a143b-0255-42dc-a496-ac23bfb1e1f3'
     url = 'https://m2.qschou.com/project/love/love_v7.html?projuuid=' + uuid
 
     driver = set_up(url)
