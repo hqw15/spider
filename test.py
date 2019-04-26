@@ -338,6 +338,8 @@ def get_single_info(project, zx_num, support_num, update = False):
         uuid = project['uuid']
         assert project['template'] == 'love'
     # uuid = 'c3228d98-48d9-4e0b-b490-10ee956738cf'
+    # uuid = '4fc61a14-b639-40aa-a1a0-05a0c5688746'
+    # uuid = '31c69f97-c210-454d-b252-529059bb86b7'
     url = 'https://m2.qschou.com/project/love/love_v7.html?projuuid=' + uuid
 
     driver = set_up(url)
@@ -348,9 +350,10 @@ def get_single_info(project, zx_num, support_num, update = False):
     )
     isactive = driver.find_element_by_css_selector('.project-active.J-project-active').is_displayed()
     isclosed = driver.find_element_by_css_selector('.project-closed.J-project-closed').is_displayed()
+    # zz = driver.find_element_by_css_selector('.projectend-bar-title-left')
     if isclosed:
         return True, None
-    # print ('zzzzzzzzzzzzzz',isactive.is_displayed(),isclosed.is_displayed())
+    # print ('zzzzzzzzzzzzzz',isactive,isclosed, zz.text)
     # 获取筹款结果
     money_list = _money_list(driver)
     single_ret['筹款结果'] = money_list
@@ -428,8 +431,8 @@ def add_new(before_file, project_list):
         zx_num, support_num = 0, 0
         try_cnt = 0
         for tmp_cnt in range(3):
-            if 1:
-            # try:
+            # if 1:
+            try:
                 isclosed, single_ret = get_single_info(project, zx_num, support_num)
                 try_cnt = 0
                 if isclosed:
@@ -437,9 +440,9 @@ def add_new(before_file, project_list):
                 before_file[uuid] = single_ret
                 try_cnt = 0
                 break
-            # except:
-            #     try_cnt += 1
-            #     time.sleep(1)
+            except:
+                try_cnt += 1
+                time.sleep(1)
         if try_cnt != 0:
             error_dict['error'].append(uuid)
             print ('fail %s' % uuid)
