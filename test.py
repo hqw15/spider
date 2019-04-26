@@ -249,7 +249,9 @@ def _fund_info(driver):
         c_time = comment.find_element_by_class_name('citme').text.strip().split(' ')[0].strip()
         single = {'姓名' : c_name, '文字': c_text, '时间': _set_time(c_time)}
         ret['筹款动态'].append(single)
+        c_time = comment.find_element_by_class_name('citme').text.strip()
         if c_time.endswith('项目发起'):
+            c_time = c_time.split(' ')[0].strip()
             ret['项目发起'] = _set_time(c_time)
 
     # 资金公示
@@ -347,6 +349,7 @@ def get_single_info(project, zx_num, support_num, update = False):
     # uuid = '4fc61a14-b639-40aa-a1a0-05a0c5688746'
     # uuid = '31c69f97-c210-454d-b252-529059bb86b7'
     # uuid = '6a9a143b-0255-42dc-a496-ac23bfb1e1f3'
+    # uuid = ' e666723d-fe20-4b98-9e21-50f1180f31aa'
     url = 'https://m2.qschou.com/project/love/love_v7.html?projuuid=' + uuid
 
     driver = set_up(url)
