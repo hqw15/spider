@@ -41,11 +41,11 @@ def find_list(driver, tag):
     except:
         print ('ERROR :  In fun:find_list, find %s error' % tag)
         exit()
+    love_list = json.loads(project_list.text)['data']['recommend']
     project_list = json.loads(project_list.text)['data']['project']
     driver.close()
-    # print('close driver ...')
-    return project_list
-
+    # return project_list + love_list
+    return love_list
     # project_list = json.dumps(project_list, ensure_ascii=False, indent=2)
     # with open('/Users/hqw/Desktop/qschou/ret.json', 'w', encoding = 'utf-8') as f:
     #     f.write(project_list)
@@ -248,19 +248,7 @@ def _fund_info(driver):
         ret['筹款动态'].append(single)
         if c_time.endswith('项目发起'):
             c_time = c_time.split(' ')[0].strip()
-            if c_time.endswith('天前'):
-                now = datetime.datetime.now().strftime('%Y-%m-%d')
-                nd = datetime.datetime.strptime(now,'%Y-%m-%d') - datetime.timedelta(days=int(re.sub('\D','',c_time)))
-                ret['项目发起'] = nd.strftime('%Y-%m-%d')
-            elif c_time.endswith('分钟前') and '小时前' not in c_time:
-                nd = datetime.datetime.now() - datetime.timedelta(minutes=int(re.sub('\D','',c_time)))
-                ret['项目发起'] = nd.strftime('%Y-%m-%d %H:%M:%S')
-            elif c_time.endswith('小时前') and '分钟前' not in c_time:
-                nd = datetime.datetime.now() - datetime.timedelta(hours=int(re.sub('\D','',c_time)))
-                ret['项目发起'] = nd.strftime('%Y-%m-%d %H:%M:%S')
-            else:
-                raise ValueError("项目发起 % s" % c_time)
-    
+            ret['项目发起'] = _set_time(c_time)
 
     # 资金公示
     fund_public = dt_zj.find_element_by_id('fund_public')
@@ -272,6 +260,24 @@ def _fund_info(driver):
     ret['资金公示'] = text
 
     return ret
+
+def _set_time(c_time):
+
+    if c_time.endswith('天前'):
+        now = datetime.datetime.now().strftime('%Y-%m-%d')
+        nd = datetime.datetime.strptime(now,'%Y-%m-%d') - datetime.timedelta(days=int(re.sub('\D','',c_time)))
+        return nd.strftime('%Y-%m-%d')
+    elif c_time.endswith('秒前') and '小时前' not in c_time  and '分钟前' not in c_time:
+        nd = datetime.datetime.now() - datetime.timedelta(seconds=int(re.sub('\D','',c_time)))
+        return nd.strftime('%Y-%m-%d %H:%M:%S')
+    elif c_time.endswith('分钟前') and '小时前' not in c_time:
+        nd = datetime.datetime.now() - datetime.timedelta(minutes=int(re.sub('\D','',c_time)))
+        return nd.strftime('%Y-%m-%d %H:%M')
+    elif c_time.endswith('小时前') and '分钟前' not in c_time:
+        nd = datetime.datetime.now() - datetime.timedelta(hours=int(re.sub('\D','',c_time)))
+        return nd.strftime('%Y-%m-%d %H')
+    else:
+        raise ValueError("时间 % s" % c_time)
 
 
 def _support_list(driver, num, last_num = 0):
@@ -314,7 +320,7 @@ def _support_list(driver, num, last_num = 0):
         except:
             pass
         s_time = cominfo.find_element_by_class_name('citme').text.strip()
-        single = {'爱心值' : s_love, '金额' : s_money, '姓名' : s_name, '时间': s_time, '文字': s_text}
+        single = {'爱心值' : s_love, '金额' : s_money, '姓名' : s_name, '时间': _set_time(s_time), '文字': s_text}
         ret_list.append(single)
 
     ret['捐助人列表'] = ret_list
@@ -422,7 +428,8 @@ def add_new(before_file, project_list):
         zx_num, support_num = 0, 0
         try_cnt = 0
         for tmp_cnt in range(3):
-            try:
+            if 1:
+            # try:
                 isclosed, single_ret = get_single_info(project, zx_num, support_num)
                 try_cnt = 0
                 if isclosed:
@@ -430,9 +437,9 @@ def add_new(before_file, project_list):
                 before_file[uuid] = single_ret
                 try_cnt = 0
                 break
-            except:
-                try_cnt += 1
-                time.sleep(1)
+            # except:
+            #     try_cnt += 1
+            #     time.sleep(1)
         if try_cnt != 0:
             error_dict['error'].append(uuid)
             print ('fail %s' % uuid)
@@ -472,33 +479,37 @@ def update(before_file):
     return before_file, error_dict
 
 
-
+def add_error(error_dict):
+    with open(os.path.join('output', 'error.txt'), 'a+', encoding = 'utf-8') as f:
+        for uid in error_dict['error']:
+            f.write(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')+ '\t' + uid + '\n')
 
 
 
 if __name__ == "__main__":
 
-    all = []
-    # path = None
-    path = os.path.join('2','update_before_file.json')
-    for i in range(51,1000):
-        if not os.path.exists(str(i//25)):
-            os.mkdir(str(i//25))
+    if not os.path.exists('output'):
+        os.mkdir('output')
+    path = None
+    # path = os.path.join('2','update_before_file.json')
+    for i in range(0,1000):
+        if not os.path.exists(os.path.join('output',str(i//25))):
+            os.mkdir(os.path.join('output',str(i//25)))
         # 添加新的项目
         project_list = read_list(n=1)
         before_file = read_before(path)
-        print ('add new', len(before_file))
+        print (datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),'add new', len(before_file))
         before_file, error_dict = add_new(before_file, project_list)
-        print ('after add new', len(before_file))
-        json_out(before_file, os.path.join(str(i//25),'add_before_file.json'))
-        json_out(error_dict, os.path.join(str(i//25),'add_error_dict.json'))
+        print (datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),'after add new', len(before_file))
+        json_out(before_file, os.path.join('output',str(i//25),'add_before_file.json'))
+        add_error(error_dict)
         # path = None
         # 更新已有项目
         before_file = read_before(os.path.join(str(i//25),'add_before_file.json'))
         before_file, error_dict = update(before_file)
         json_out(before_file, os.path.join(str(i//25),'update_before_file.json'))
-        json_out(error_dict, os.path.join(str(i//25),'update_error_dict.json'))
-        path = os.path.join(str(i//25),'update_before_file.json')
+        path = os.path.join('output',str(i//25),'update_before_file.json')
+        add_error(error_dict)
 
     # qschou = 'https://m2.qschou.com/index_v7_3.html'
     # ret_json = 'https://gateway.qschou.com/v3.0.0/index/homepage'
