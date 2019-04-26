@@ -297,7 +297,7 @@ def _support_list(driver, num, last_num = 0):
     time.sleep(1)
 
     support_list = driver.find_elements_by_css_selector('.citem.J-support-item')
-    print (num, iter_num, len(support_list))
+    # print (num, iter_num, len(support_list))
     for index in range(min(int(num)-last_num,len(support_list))):
         support = support_list[index]
         s_love = 'unknown'
@@ -322,14 +322,15 @@ def _support_list(driver, num, last_num = 0):
     return ret
 
 
-def get_single_info(project, zx_num, support_num):
+def get_single_info(project, zx_num, support_num, update = False):
     ''' 获取单个受捐助人的所有相关信息
     '''
 
     single_ret = {}
-
-    uuid = project['uuid']
-    assert project['template'] == 'love'
+    uuid = project
+    if not update:
+        uuid = project['uuid']
+        assert project['template'] == 'love'
     # uuid = 'c3228d98-48d9-4e0b-b490-10ee956738cf'
     url = 'https://m2.qschou.com/project/love/love_v7.html?projuuid=' + uuid
 
@@ -339,8 +340,8 @@ def get_single_info(project, zx_num, support_num):
     WebDriverWait(driver, 10).until(
         EC.presence_of_element_located((By.CLASS_NAME,'sectionT')) 
     )
-    isactive = driver.find_element_by_css_selector('.project-active.J-project-active')
-    isclosed = driver.find_element_by_css_selector('.project-closed.J-project-closed')
+    isactive = driver.find_element_by_css_selector('.project-active.J-project-active').is_displayed()
+    isclosed = driver.find_element_by_css_selector('.project-closed.J-project-closed').is_displayed()
     if isclosed:
         return True, None
     # print ('zzzzzzzzzzzzzz',isactive.is_displayed(),isclosed.is_displayed())
@@ -416,6 +417,8 @@ def add_new(before_file, project_list):
     for index in tqdm(range(len(project_list))):
         project = project_list[index]
         uuid = project['uuid']
+        if uuid in before_file:
+            continue
         zx_num, support_num = 0, 0
         try_cnt = 0
         for tmp_cnt in range(3):
@@ -445,8 +448,9 @@ def update(before_file):
         support_num = int(before_file[uuid]['捐助人信息']['捐助人数量'])
         try_cnt , closed = 0, False
         for tmp_cnt in range(3):
+            # if 1:
             try:
-                closed, single_ret = get_single_info(project, zx_num, support_num)
+                closed, single_ret = get_single_info(uuid, zx_num, support_num, update = True)
                 try_cnt = 0
                 if closed:
                     before_file[uuid]['筹款动态']['项目截至'] = datetime.datetime.now().strftime('%Y-%m-%d')
@@ -475,14 +479,17 @@ def update(before_file):
 if __name__ == "__main__":
 
     all = []
-    path = None
-    for i in range(1000):
+    # path = None
+    path = os.path.join('2','update_before_file.json')
+    for i in range(51,1000):
         if not os.path.exists(str(i//25)):
             os.mkdir(str(i//25))
         # 添加新的项目
         project_list = read_list(n=1)
         before_file = read_before(path)
+        print ('add new', len(before_file))
         before_file, error_dict = add_new(before_file, project_list)
+        print ('after add new', len(before_file))
         json_out(before_file, os.path.join(str(i//25),'add_before_file.json'))
         json_out(error_dict, os.path.join(str(i//25),'add_error_dict.json'))
         # path = None
