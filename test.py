@@ -148,8 +148,11 @@ def _money_list(driver):
         if money.text.startswith(des[index]):
             num = re.sub('\D', '', money.text)
             ret[des[index]] = num
-    share = driver.find_element_by_css_selector('.share-btn.J-btn-share.dtstrackclick')
-    ret['转发次数'] = share.text.strip()
+    try:
+        share = driver.find_element_by_css_selector('.share-btn.J-btn-share.dtstrackclick')
+        ret['转发次数'] = share.text.strip()
+    except:
+        test = driver.find_element_by_css_selector('.projectend-bar-title-left')
     return ret
 
 def _zl_list(section):
