@@ -246,11 +246,10 @@ def _fund_info(driver):
     for comment in comment_list:
         c_name = comment.find_element_by_tag_name('h6').text.strip()
         c_text = comment.find_element_by_class_name('ctxt').text.strip()
-        c_time = comment.find_element_by_class_name('citme').text.strip()
-        single = {'姓名' : c_name, '文字': c_text, '时间': c_time}
+        c_time = comment.find_element_by_class_name('citme').text.strip().split(' ')[0].strip()
+        single = {'姓名' : c_name, '文字': c_text, '时间': _set_time(c_time)}
         ret['筹款动态'].append(single)
         if c_time.endswith('项目发起'):
-            c_time = c_time.split(' ')[0].strip()
             ret['项目发起'] = _set_time(c_time)
 
     # 资金公示
@@ -341,7 +340,7 @@ def get_single_info(project, zx_num, support_num, update = False):
         uuid = project['uuid']
         assert project['template'] == 'love'
     # uuid = 'c3228d98-48d9-4e0b-b490-10ee956738cf'
-    uuid = '4fc61a14-b639-40aa-a1a0-05a0c5688746'
+    # uuid = '4fc61a14-b639-40aa-a1a0-05a0c5688746'
     # uuid = '31c69f97-c210-454d-b252-529059bb86b7'
     url = 'https://m2.qschou.com/project/love/love_v7.html?projuuid=' + uuid
 
@@ -356,7 +355,7 @@ def get_single_info(project, zx_num, support_num, update = False):
     try:
         zz = driver.find_element_by_css_selector('.projectend-bar-title-right.J-projectend-bar-title-right')
         zz.click()
-        print ('aaaaaaa')
+        print ('project end!!!!!!!')
     except:
         pass
     if isclosed:
@@ -370,7 +369,7 @@ def get_single_info(project, zx_num, support_num, update = False):
     fund_info = _fund_info(driver)
     single_ret['筹款动态'] = fund_info
 
-    print (fund_info)
+    # print (fund_info)
         
     section_list = driver.find_elements_by_css_selector('.section.sectionT')
     for section in section_list:
@@ -441,8 +440,8 @@ def add_new(before_file, project_list):
         zx_num, support_num = 0, 0
         try_cnt = 0
         for tmp_cnt in range(3):
-            if 1:
-            # try:
+            # if 1:
+            try:
                 isclosed, single_ret = get_single_info(project, zx_num, support_num)
                 try_cnt = 0
                 if isclosed:
@@ -450,9 +449,9 @@ def add_new(before_file, project_list):
                 before_file[uuid] = single_ret
                 try_cnt = 0
                 break
-            # except:
-            #     try_cnt += 1
-            #     time.sleep(1)
+            except:
+                try_cnt += 1
+                time.sleep(1)
         if try_cnt != 0:
             error_dict['error'].append(uuid)
             print ('fail %s' % uuid)
@@ -504,7 +503,7 @@ if __name__ == "__main__":
     if not os.path.exists('output'):
         os.mkdir('output')
     path = None
-    # path = os.path.join('2','update_before_file.json')
+    path = os.path.join('output','0','update_before_file.json')
     for i in range(0,1000):
         if not os.path.exists(os.path.join('output',str(i//25))):
             os.mkdir(os.path.join('output',str(i//25)))
@@ -514,8 +513,8 @@ if __name__ == "__main__":
         print (datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),'add new', len(before_file))
         before_file, error_dict = add_new(before_file, project_list)
         print (datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),'after add new', len(before_file))
-        # json_out(before_file, os.path.join('output',str(i//25),'add_before_file.json'))
-        # add_error(error_dict)
+        json_out(before_file, os.path.join('output',str(i//25),'add_before_file.json'))
+        add_error(error_dict)
         # path = None
         # 更新已有项目
         before_file = read_before(os.path.join('output',str(i//25),'add_before_file.json'))
@@ -523,6 +522,7 @@ if __name__ == "__main__":
         json_out(before_file, os.path.join('output',str(i//25),'update_before_file.json'))
         path = os.path.join('output',str(i//25),'update_before_file.json')
         add_error(error_dict)
+        print ('end update')
 
     # qschou = 'https://m2.qschou.com/index_v7_3.html'
     # ret_json = 'https://gateway.qschou.com/v3.0.0/index/homepage'
