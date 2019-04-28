@@ -238,6 +238,7 @@ def _fund_info(driver):
     fund_news.click()
     comment_box = driver.find_element_by_class_name('comment-box')
     try:
+        driver = simple_scroll(driver, 10)
         comment_box.find_element_by_id('all_news').click()
     except:
         pass
@@ -350,6 +351,8 @@ def get_single_info(project, zx_num, support_num, update = False):
     # uuid = '31c69f97-c210-454d-b252-529059bb86b7'
     # uuid = '6a9a143b-0255-42dc-a496-ac23bfb1e1f3'
     # uuid = ' e666723d-fe20-4b98-9e21-50f1180f31aa'
+    if uuid == 'a14aba92-80da-4f49-96fb-0423c6ea573b':
+    	print ('ssssssssss')
     url = 'https://m2.qschou.com/project/love/love_v7.html?projuuid=' + uuid
 
     driver = set_up(url)
@@ -485,9 +488,12 @@ def update(before_file):
 
                 zs_list = before_file[uuid]['证实人信息']['证实人列表'].copy()
                 support_list = before_file[uuid]['捐助人信息']['捐助人列表'].copy()
+                dt_list = before_file[uuid]['筹款动态']['筹款动态']
                 before_file[uuid] = single_ret
                 before_file[uuid]['证实人信息']['证实人列表'] += zs_list 
                 before_file[uuid]['捐助人信息']['捐助人列表'] += support_list
+                new_len = len(before_file[uuid]['筹款动态']['筹款动态'])
+                before_file[uuid]['筹款动态']['筹款动态'] = before_file[uuid]['筹款动态']['筹款动态'][0:new_len - len(dt_list)] + dt_list
                 break
             except:
                 try_cnt += 1
@@ -511,8 +517,8 @@ if __name__ == "__main__":
     if not os.path.exists('output'):
         os.mkdir('output')
     path = None
-    path = os.path.join('output','0','update_before_file.json')
-    for i in range(0,1000):
+    path = os.path.join('output','2','update_before_file.json')
+    for i in range(50,1000):
         if not os.path.exists(os.path.join('output',str(i//25))):
             os.mkdir(os.path.join('output',str(i//25)))
         # 添加新的项目
