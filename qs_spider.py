@@ -10,6 +10,7 @@ import os
 import datetime
 import shutil
 from urllib import request
+from standard import AttrValue
 
 
 
@@ -51,7 +52,6 @@ def get_para():
 
 	
 def get_ip():
-
 	"""获取代理IP"""
 	url = "http://www.xicidaili.com/nn"
 	headers = { "Accept":"text/html,application/xhtml+xml,application/xml;",
@@ -72,6 +72,8 @@ def get_ip():
 
 	
 def _open_url(url, max_try = 3,use_post = False, data = None):
+	'''	打开一个网页
+	'''
 	
 	while max_try > 0:
 		try:
@@ -103,6 +105,8 @@ def _open_url(url, max_try = 3,use_post = False, data = None):
 	return res
 	
 def getList():
+	'''	获取首页项目
+	'''
 
 	url = 'https://gateway.qschou.com/v3.0.0/index/homepage'
 	res = _open_url(url)
@@ -149,26 +153,6 @@ def getIntro(uuid, is_new = True, old_dict = None):
 		ret['stopped_time']  = time.strftime("%Y-%m-%d (%H:%M:%S)", time.localtime(over_timestamp))
 	else:
 		ret['stopped_time']  = ''
-	# if is_new:
-	# 	if res['project']['stopped'] == '0':
-	# 		ret['stopped_time'] = ''
-	# 	elif res['project']['stopped'] == '1':
-	# 		ret['stopped_time'] = datetime.datetime.now().strftime('%Y-%m-%d (%H:%M:%S)')
-	# 	else:
-	# 		ret['stopped_time'] = ''
-	# 		print ('stopped_time', uuid)
-	# else :
-	# 	if 'stopped_time' in old_dict['intro']:
-	# 		if old_dict['intro']['stopped_time'] != '':
-	# 			if res['project']['stopped'] == '0':
-	# 				ret['stopped_time'] = ''
-	# 			elif res['project']['stopped'] == '1':
-	# 				ret['stopped_time'] = datetime.datetime.now().strftime('%Y-%m-%d (%H:%M:%S)')
-	# 			else:
-	# 				ret['stopped_time'] = ''
-	# 				print ('stopped_time', uuid)
-	# 	else:
-	# 		ret['stopped_time'] = '未知'
 			
 	return ret
 	
@@ -216,7 +200,6 @@ def getProve(uuid, is_new = True, old_dict = None):
 	
 	next = ''
 	prove_list = []
-	
 	last_id = ''
 	if not is_new and len(old_dict['prove']['prove_list']) > 0:
 		last_id = old_dict['prove']['prove_list'][0]['id']
@@ -247,8 +230,12 @@ def getProve(uuid, is_new = True, old_dict = None):
 	else:
 		ret['prove_list'] = prove_list 
 	return ret
+
+
 	
 def feed(uuid, is_new = True, old_dict = None):
+	'''	动态 资金公示
+	'''
 	
 	ret = {'news': [], 'funds': []}
 	url = 'https://gateway.qschou.com/v3.0.0/feed/project?uuid=' + uuid 
@@ -267,6 +254,8 @@ def feed(uuid, is_new = True, old_dict = None):
 	
 	
 def getSupport(uuid, is_new = True, old_dict = None):
+	'''	捐助信息
+	'''
 
 	last_id = ''
 	if not is_new and len(old_dict['support']) > 0:
@@ -336,14 +325,19 @@ if __name__ == "__main__":
 
 	s = time.strftime("%Y-%m-%d_%H:%M:%S", time.localtime(time.time()))
 	
-	print (s, type(s))
-	
 	in_dir, space = get_para()
 	iter_cnt = 0
 	while True:
 		print ('============<<<' + str(iter_cnt) + '>>>============')
+		
+		attrValue = AttrValue()
+
+
+
 		iter_cnt += 1
 		new_list = []
+		old_list = []
+		end_list = []
 		befor_list = get_before_list(in_dir)
 		start_time = time.time()
 		IP_LIST = get_ip()
@@ -358,9 +352,12 @@ if __name__ == "__main__":
 				uuid = project['uuid']
 				if project['template'] == 'love' and uuid not in befor_list and uuid not in new_list:
 					new_list.append(uuid)
-			# 每隔300s寻找新的项目
+				if project['template'] == 'love' and uuid in befor_list:
+					old_list.append(uuid)
 			time.sleep(60)
 		print (datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' : add new project ...(' + str(len(new_list)) + ')')
+
+
 		output = time.strftime("%Y-%m-%d(%H-%M-%S)", time.localtime(time.time()))
 		if not os.path.exists(output):
 			os.mkdir(output)
@@ -369,7 +366,16 @@ if __name__ == "__main__":
 		for index, uuid in  enumerate(new_list):
 			succ, tmp = update(uuid)
 			if succ:
-				out[uuid] = tmp
+				now_time = time.strftime("%Y-%m-%d(%H-%M-%S)", time.localtime(time.time()))
+				for attr in tmp['intro']:
+					id = attrValue.update_attr(uuid, attr, tmp['intro'][attr])
+					tmp['intro'][attr] = {now_time: id}
+				for attr in tmp['prove']:
+					if attr != 'prove_list':
+						id = attrValue.update_attr(uuid, attr, tmp['prove'][attr])
+						tmp['prove'][attr] = {now_time: id}
+				out[uuid] = tmp 
+				out[uuid]['sy'] = {now_time : 1 }
 			else:
 				print ('fail : add new project  %s' % uuid)
 			if index != 0 and index % 10 == 0:
@@ -391,12 +397,29 @@ if __name__ == "__main__":
 				with open(os.path.join(root, name), 'r', encoding = 'utf-8') as f:
 					tmp = json.load(f)
 				for uuid in tmp:
+					now_time = time.strftime("%Y-%m-%d(%H-%M-%S)", time.localtime(time.time()))
 					succ, tmp_dict = update(uuid, is_new = False, old_dict = tmp[uuid])
 					if succ:
 						out[uuid] = tmp_dict
+						out[uuid]['sy'] = tmp[uuid]['sy'].copy()
+						for attr in tmp_dict['intro']:
+							id = attrValue.update_attr(uuid, attr, tmp_dict['intro'][attr])
+							out[uuid] = tmp[uuid]['intro'][attr].copy()
+							out[uuid]['intro'][attr][now_time] = id
+						for attr in tmp_dict['prove']:
+							if attr != 'prove_list':
+								id = attrValue.update_attr(uuid, attr, tmp_dict['prove'][attr])
+								out[uuid] = tmp[uuid]['prove'][attr].copy()
+								out[uuid]['prove'][attr][now_time] = id
 					else:
 						out[uuid] = tmp[uuid]
 						print ('update fail... %s' % uuid)
+					
+					if uuid in old_list:
+						out[uuid]['sy'][now_time] = 1
+					else:
+						out[uuid]['sy'][now_time] = 0
+
 				out_single_json(out, os.path.join(output, str(out_index) + '.json'))
 				out_index += 1
 		
