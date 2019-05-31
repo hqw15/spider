@@ -1,7 +1,7 @@
 import json
 import os
 import time
-import datatime
+import datetime
 
 
 def out_single_json(data, path):
@@ -9,7 +9,7 @@ def out_single_json(data, path):
 	with open(path, 'w', encoding = 'utf-8') as f:
 		f.write(data)
 
-
+in_dir = '2019-05-31(23-46-00)'
 cnt = 0
 for root, dirs, files in os.walk(in_dir):
 	for name in files:
@@ -23,18 +23,20 @@ for root, dirs, files in os.walk(in_dir):
 
 
 		for uid in tmp:
-			if uid not in attr:
+			if uid not in attr_out:
 				attr_out[uid] = {}
 			for attr in tmp[uid]['intro']:
-				tmp[uid]['intro'][attr] = {now_time: 0}
 				attr_out[uid][attr] = {0:  tmp[uid]['intro'][attr]}
+				tmp[uid]['intro'][attr] = {now_time: 0}
+				
 				
 			for attr in tmp[uid]['prove']:
 				if attr != 'prove_list':
-					tmp[uid]['prove'][attr] = {now_time: 0}
 					attr_out[uid][attr] = {0:  tmp[uid]['prove'][attr]}
-
+					tmp[uid]['prove'][attr] = {now_time: 0}
+					
 		out_single_json(tmp, os.path.join('project', name))
 		out_single_json(attr_out, os.path.join('attr', name))
+		print ('ss')
 
 
