@@ -517,8 +517,8 @@ if __name__ == "__main__":
     if not os.path.exists('output'):
         os.mkdir('output')
     path = None
-    path = os.path.join('output','2','update_before_file.json')
-    for i in range(50,1000):
+    path = os.path.join('output','3','update_before_file.json')
+    for i in range(77,1000):
         if not os.path.exists(os.path.join('output',str(i//25))):
             os.mkdir(os.path.join('output',str(i//25)))
         # 添加新的项目
