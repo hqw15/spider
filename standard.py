@@ -33,6 +33,12 @@ class AttrValue:
 
 			new_id = len(self.data[uid][attr])
 
+			if (type(value).__name__=='dict'):
+				tmp = self.get_attr(uid, attr)
+				if (type(tmp).__name__=='dict'):
+					if cmp(tmp, value) == 0:
+						return new_id-1
+
 			if self.get_attr(uid, attr) == value:
 				return new_id-1
 			

@@ -10,7 +10,7 @@ import os
 import datetime
 import shutil
 from urllib import request
-from standard import AttrValue
+# from standard import AttrValue
 
 
 
@@ -329,15 +329,10 @@ if __name__ == "__main__":
 	iter_cnt = 0
 	while True:
 		print ('============<<<' + str(iter_cnt) + '>>>============')
-		
-		attrValue = AttrValue()
-
-
-
+		# attrValue = AttrValue(fdir = 'project')
 		iter_cnt += 1
 		new_list = []
 		old_list = []
-		end_list = []
 		befor_list = get_before_list(in_dir)
 		start_time = time.time()
 		IP_LIST = get_ip()
@@ -352,9 +347,9 @@ if __name__ == "__main__":
 				uuid = project['uuid']
 				if project['template'] == 'love' and uuid not in befor_list and uuid not in new_list:
 					new_list.append(uuid)
-				if project['template'] == 'love' and uuid in befor_list:
+				if project['template'] == 'love' and uuid in befor_list :
 					old_list.append(uuid)
-			time.sleep(60)
+			time.sleep(0)
 		print (datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' : add new project ...(' + str(len(new_list)) + ')')
 
 
@@ -368,12 +363,10 @@ if __name__ == "__main__":
 			if succ:
 				now_time = time.strftime("%Y-%m-%d(%H-%M-%S)", time.localtime(time.time()))
 				for attr in tmp['intro']:
-					id = attrValue.update_attr(uuid, attr, tmp['intro'][attr])
-					tmp['intro'][attr] = {now_time: id}
+					tmp['intro'][attr] = {now_time: tmp['intro'][attr], 'new': tmp['intro'][attr]}
 				for attr in tmp['prove']:
 					if attr != 'prove_list':
-						id = attrValue.update_attr(uuid, attr, tmp['prove'][attr])
-						tmp['prove'][attr] = {now_time: id}
+						tmp['prove'][attr] = {now_time: tmp['prove'][attr], 'new' : tmp['prove'][attr]}
 				out[uuid] = tmp 
 				out[uuid]['sy'] = {now_time : 1 }
 			else:
@@ -403,14 +396,35 @@ if __name__ == "__main__":
 						out[uuid] = tmp_dict
 						out[uuid]['sy'] = tmp[uuid]['sy'].copy()
 						for attr in tmp_dict['intro']:
-							id = attrValue.update_attr(uuid, attr, tmp_dict['intro'][attr])
-							out[uuid] = tmp[uuid]['intro'][attr].copy()
-							out[uuid]['intro'][attr][now_time] = id
+							if tmp_dict['intro'][attr] == tmp[uuid]['intro'][attr]['new']:
+								tmp_dict['intro'][attr] = tmp[uuid]['intro'][attr].copy()
+								tmp_dict['intro'][attr][now_time] = ''
+							else:
+								value = tmp_dict['intro'][attr].copy()
+								tmp_dict['intro'][attr] = tmp[uuid]['intro'][attr].copy()
+								tmp_dict['intro'][attr][now_time] = value
+								tmp_dict['intro'][attr]['new'] = value
+
 						for attr in tmp_dict['prove']:
 							if attr != 'prove_list':
-								id = attrValue.update_attr(uuid, attr, tmp_dict['prove'][attr])
-								out[uuid] = tmp[uuid]['prove'][attr].copy()
-								out[uuid]['prove'][attr][now_time] = id
+								is_same = False
+								if (type(tmp_dict['prove'][attr]).__name__=='dict'):
+									if (type(tmp[uuid]['prove'][attr]['new']).__name__=='dict'):
+										if cmp(tmp_dict['prove'][attr], tmp[uuid]['prove'][attr]['new']) == 0:
+											tmp_dict['prove'][attr] = tmp[uuid]['prove'][attr].copy()
+											tmp_dict['prove'][attr][now_time] = ''
+											is_same = True
+								else:
+									if tmp_dict['prove'][attr] == tmp[uuid]['prove'][attr]['new']:
+										tmp_dict['prove'][attr] = tmp[uuid]['prove'][attr].copy()
+											tmp_dict['prove'][attr][now_time] = ''
+											is_same = True
+								if not same:
+									value = tmp_dict['prove'][attr].copy()
+									tmp_dict['prove'][attr] = tmp[uuid]['prove'][attr].copy()
+									tmp_dict['prove'][attr][now_time] = value
+									tmp_dict['prove'][attr]['new'] = value
+								
 					else:
 						out[uuid] = tmp[uuid]
 						print ('update fail... %s' % uuid)
@@ -427,7 +441,7 @@ if __name__ == "__main__":
 
 		in_dir = output
 				
-				
+		break
 				
 				
 				
