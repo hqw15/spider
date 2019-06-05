@@ -349,11 +349,11 @@ if __name__ == "__main__":
 					new_list.append(uuid)
 				if project['template'] == 'love' and uuid in befor_list :
 					old_list.append(uuid)
-			time.sleep(0)
+			time.sleep(60)
 		print (datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' : add new project ...(' + str(len(new_list)) + ')')
 
 
-		output = time.strftime("%Y-%m-%d(%H-%M-%S)", time.localtime(time.time()))
+		output = time.strftime("%Y-%m-%d(%H-%M-%S)", time.localtime(time.time())) + 'new'
 		if not os.path.exists(output):
 			os.mkdir(output)
 		# 添加新的project
@@ -381,6 +381,7 @@ if __name__ == "__main__":
 		out = {}
 		
 		# 更新已有project
+		end_project = {}
 		print (datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' : update old project ...')
 		for root, dirs, files in os.walk(in_dir):
 			for name in files:
@@ -390,58 +391,83 @@ if __name__ == "__main__":
 				with open(os.path.join(root, name), 'r', encoding = 'utf-8') as f:
 					tmp = json.load(f)
 				for uuid in tmp:
-					now_time = time.strftime("%Y-%m-%d(%H-%M-%S)", time.localtime(time.time()))
-					succ, tmp_dict = update(uuid, is_new = False, old_dict = tmp[uuid])
-					if succ:
-						out[uuid] = tmp_dict
-						out[uuid]['sy'] = tmp[uuid]['sy'].copy()
-						for attr in tmp_dict['intro']:
-							if tmp_dict['intro'][attr] == tmp[uuid]['intro'][attr]['new']:
-								tmp_dict['intro'][attr] = tmp[uuid]['intro'][attr].copy()
-								tmp_dict['intro'][attr][now_time] = ''
-							else:
-								value = tmp_dict['intro'][attr].copy()
-								tmp_dict['intro'][attr] = tmp[uuid]['intro'][attr].copy()
-								tmp_dict['intro'][attr][now_time] = value
-								tmp_dict['intro'][attr]['new'] = value
 
-						for attr in tmp_dict['prove']:
-							if attr != 'prove_list':
-								is_same = False
-								if (type(tmp_dict['prove'][attr]).__name__=='dict'):
-									if (type(tmp[uuid]['prove'][attr]['new']).__name__=='dict'):
-										if cmp(tmp_dict['prove'][attr], tmp[uuid]['prove'][attr]['new']) == 0:
+					if tmp[uuid]['intro']['stopped_time']['new'] != '':
+						end_project[uuid] = tmp[uuid]
+
+					else:
+						now_time = time.strftime("%Y-%m-%d(%H-%M-%S)", time.localtime(time.time()))
+						succ, tmp_dict = update(uuid, is_new = False, old_dict = tmp[uuid])
+						if succ:
+							for attr in tmp_dict['intro']:
+								if tmp_dict['intro'][attr] == tmp[uuid]['intro'][attr]['new']:
+									tmp_dict['intro'][attr] = tmp[uuid]['intro'][attr].copy()
+									tmp_dict['intro'][attr][now_time] = ''
+								else:
+									value = tmp_dict['intro'][attr]
+									tmp_dict['intro'][attr] = tmp[uuid]['intro'][attr].copy()
+									tmp_dict['intro'][attr][now_time] = value
+									tmp_dict['intro'][attr]['new'] = value
+
+							for attr in tmp_dict['prove']:
+								if attr != 'prove_list':
+									is_same = False
+									if (type(tmp_dict['prove'][attr]).__name__=='dict'):
+										if (type(tmp[uuid]['prove'][attr]['new']).__name__=='dict'):
+											if cmp(tmp_dict['prove'][attr], tmp[uuid]['prove'][attr]['new']) == 0:
+												tmp_dict['prove'][attr] = tmp[uuid]['prove'][attr].copy()
+												tmp_dict['prove'][attr][now_time] = ''
+												is_same = True
+									else:
+										if tmp_dict['prove'][attr] == tmp[uuid]['prove'][attr]['new']:
 											tmp_dict['prove'][attr] = tmp[uuid]['prove'][attr].copy()
 											tmp_dict['prove'][attr][now_time] = ''
 											is_same = True
-								else:
-									if tmp_dict['prove'][attr] == tmp[uuid]['prove'][attr]['new']:
+									if not is_same:
+										if (type(tmp_dict['prove'][attr]).__name__=='dict'):
+											value = tmp_dict['prove'][attr].copy()
+										else:
+											value = tmp_dict['prove'][attr]
 										tmp_dict['prove'][attr] = tmp[uuid]['prove'][attr].copy()
-											tmp_dict['prove'][attr][now_time] = ''
-											is_same = True
-								if not same:
-									value = tmp_dict['prove'][attr].copy()
-									tmp_dict['prove'][attr] = tmp[uuid]['prove'][attr].copy()
-									tmp_dict['prove'][attr][now_time] = value
-									tmp_dict['prove'][attr]['new'] = value
-								
-					else:
-						out[uuid] = tmp[uuid]
-						print ('update fail... %s' % uuid)
-					
-					if uuid in old_list:
-						out[uuid]['sy'][now_time] = 1
-					else:
-						out[uuid]['sy'][now_time] = 0
+										tmp_dict['prove'][attr][now_time] = value
+										tmp_dict['prove'][attr]['new'] = value
+							out[uuid] = tmp_dict
+							out[uuid]['sy'] = tmp[uuid]['sy'].copy()
+									
+						else:
+							out[uuid] = tmp[uuid]
+							print ('update fail... %s' % uuid)
+						
+						if uuid in old_list:
+							out[uuid]['sy'][now_time] = 1
+						else:
+							out[uuid]['sy'][now_time] = 0
+				if len(out) > 0:
+					out_single_json(out, os.path.join(output, str(out_index) + '.json'))
+					out_index += 1
+		now_time = time.strftime("%Y-%m-%d(%H-%M-%S)", time.localtime(time.time()))
+		try:
+			if len(end_project) > 0:
+				out_single_json(end_project, os.path.join('end',  now_time+'.json'))
+		except:
+			tmp_out = {}
+			tmp_id = 0
+			for tmp_index, s in enumerate(end_project):
+				tmp_out[s] = end_project[s]
+				if tmp_index % 10 == 0 and tmp_index > 0:
+					out_single_json(tmp_out, os.path.join('end',  now_time+ str(tmp_id)+'.json'))
+					tmp_out = {}
+					tmp_id += 1
+			if len(tmp_out) > 0:
+				out_single_json(tmp_out, os.path.join('end',  now_time+ str(tmp_id)+'.json'))
 
-				out_single_json(out, os.path.join(output, str(out_index) + '.json'))
-				out_index += 1
-		
+
+
 		shutil.rmtree(in_dir)
 
 		in_dir = output
 				
-		break
+		# break
 				
 				
 				
